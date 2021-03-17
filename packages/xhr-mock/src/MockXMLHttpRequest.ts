@@ -50,6 +50,45 @@ function calculateProgress(req: MockRequest | MockResponse) {
   };
 }
 
+function detectMimeTypeAndEncoding(body: any): [string, string | undefined] {
+  let encoding: string | undefined;
+  let mimeType;
+  if (
+    typeof Document !== 'undefined' &&
+    typeof XMLDocument !== 'undefined' &&
+    body instanceof Document
+  ) {
+    // Set encoding to `UTF-8`.
+    // Set mimeType to `text/html` if body is an HTML document, and to `application/xml` otherwise. Then append `;charset=UTF-8` to mimeType.
+    // Set request body to body, serialized, converted to Unicode, and utf-8 encoded.
+    encoding = 'UTF-8';
+    mimeType = body instanceof XMLDocument ? 'application/xml' : 'text/html';
+  } else {
+    // If body is a string, set encoding to `UTF-8`.
+    // Set request body and mimeType to the result of extracting body.
+    // https://fetch.spec.whatwg.org/#concept-bodyinit-extract
+
+    if (typeof Blob !== 'undefined' && body instanceof Blob) {
+      mimeType = body.type;
+    } else if (typeof FormData !== 'undefined' && body instanceof FormData) {
+      mimeType = 'multipart/form-data; boundary=----XHRMockFormBoundary';
+    } else if (
+      typeof URLSearchParams !== 'undefined' &&
+      body instanceof URLSearchParams
+    ) {
+      encoding = 'UTF-8';
+      mimeType = 'application/x-www-form-urlencoded';
+    } else if (typeof body === 'string') {
+      encoding = 'UTF-8';
+      mimeType = 'text/plain';
+    } else {
+      throw notImplementedError;
+    }
+  }
+
+  return [mimeType, encoding];
+}
+
 // @ts-ignore: https://github.com/jameslnewell/xhr-mock/issues/45
 export default class MockXMLHttpRequest extends MockXMLHttpRequestEventTarget
   implements XMLHttpRequest {
@@ -651,46 +690,7 @@ export default class MockXMLHttpRequest extends MockXMLHttpRequestEventTarget
     }
 
     // if body is null, go to the next step otherwise, let encoding and mimeType be null, and then follow these rules, switching on body
-    let encoding;
-    let mimeType;
     if (body !== null && body !== undefined) {
-      if (
-        typeof Document !== 'undefined' &&
-        typeof XMLDocument !== 'undefined' &&
-        body instanceof Document
-      ) {
-        // Set encoding to `UTF-8`.
-        // Set mimeType to `text/html` if body is an HTML document, and to `application/xml` otherwise. Then append `;charset=UTF-8` to mimeType.
-        // Set request body to body, serialized, converted to Unicode, and utf-8 encoded.
-        encoding = 'UTF-8';
-        mimeType =
-          body instanceof XMLDocument ? 'application/xml' : 'text/html';
-      } else {
-        // If body is a string, set encoding to `UTF-8`.
-        // Set request body and mimeType to the result of extracting body.
-        // https://fetch.spec.whatwg.org/#concept-bodyinit-extract
-
-        if (typeof Blob !== 'undefined' && body instanceof Blob) {
-          mimeType = body.type;
-        } else if (
-          typeof FormData !== 'undefined' &&
-          body instanceof FormData
-        ) {
-          mimeType = 'multipart/form-data; boundary=----XHRMockFormBoundary';
-        } else if (
-          typeof URLSearchParams !== 'undefined' &&
-          body instanceof URLSearchParams
-        ) {
-          encoding = 'UTF-8';
-          mimeType = 'application/x-www-form-urlencoded';
-        } else if (typeof body === 'string') {
-          encoding = 'UTF-8';
-          mimeType = 'text/plain';
-        } else {
-          throw notImplementedError;
-        }
-      }
-
       // if mimeType is non-null and author request headers does not contain `Content-Type`, then append `Content-Type`/mimeType to author request headers.
       // otherwise, if the header whose name is a byte-case-insensitive match for `Content-Type` in author request headers has a value that is a valid MIME type,
       //    which has a `charset` parameter whose value is not a byte-case-insensitive match for encoding, and encoding is not null, then set all the `charset` parameters
@@ -698,6 +698,8 @@ export default class MockXMLHttpRequest extends MockXMLHttpRequestEventTarget
       // chrome seems to forget the second case ^^^
       const contentType = this.req.header('content-type');
       if (!contentType) {
+        const [mimeType, encoding] = detectMimeTypeAndEncoding(body);
+
         this.req.header(
           'content-type',
           encoding ? `${mimeType}; charset=${encoding}` : mimeType
