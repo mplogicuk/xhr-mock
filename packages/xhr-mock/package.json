@@ -43,7 +43,7 @@
     "typescript": "2.7.2"
   },
   "scripts": {
-    "clean": "rm -rf ./lib ./dist",
+    "clean": "del lib && del dist",
     "lint": "tslint -c ../../tslint.base.json '{src,test}/**/*.ts'",
     "check": "tsc --pretty --noEmit --project tsconfig.test.json",
     "build:cjs": "tsc --pretty --declaration",
