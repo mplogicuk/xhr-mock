@@ -11,8 +11,7 @@ export default class MockEvent implements Event {
   readonly target: EventTarget;
   readonly timeStamp: number;
   readonly type: string;
-  readonly scoped: boolean;
-
+  readonly composed: boolean;
   readonly AT_TARGET: number;
   readonly BUBBLING_PHASE: number;
   readonly CAPTURING_PHASE: number;
@@ -21,15 +20,19 @@ export default class MockEvent implements Event {
     this.type = type || '';
     if (eventInitDict) {
       const {
-        scoped = false,
+        composed = false,
         bubbles = false,
         cancelable = false
       } = eventInitDict;
-      this.scoped = scoped;
+      this.composed = composed;
       this.bubbles = bubbles;
       this.cancelable = cancelable;
     }
   }
+  composedPath(): EventTarget[] {
+    throw new Error('Method not implemented.');
+  }
+  NONE: number;
 
   initEvent(
     eventTypeArg: string,
